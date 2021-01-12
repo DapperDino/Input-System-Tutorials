@@ -6,14 +6,37 @@ namespace DapperDino.InputSystemTutorials
 {
     public class RebindingDisplay : MonoBehaviour
     {
-        [Header("References")]
-        [SerializeField] private InputActionReference actionReference = null;
+        [SerializeField] private InputActionReference jumpAction = null;
         [SerializeField] private PlayerController playerController = null;
         [SerializeField] private TMP_Text bindingDisplayNameText = null;
         [SerializeField] private GameObject startRebindObject = null;
         [SerializeField] private GameObject waitingForInputObject = null;
 
         private InputActionRebindingExtensions.RebindingOperation rebindingOperation;
+
+        private const string RebindsKey = "rebinds";
+
+        private void Start()
+        {
+            string rebinds = PlayerPrefs.GetString(RebindsKey, string.Empty);
+
+            if (string.IsNullOrEmpty(rebinds)) { return; }
+
+            playerController.PlayerInput.actions.LoadBindingOverridesFromJson(rebinds);
+
+            int bindingIndex = jumpAction.action.GetBindingIndexForControl(jumpAction.action.controls[0]);
+
+            bindingDisplayNameText.text = InputControlPath.ToHumanReadableString(
+                jumpAction.action.bindings[bindingIndex].effectivePath,
+                InputControlPath.HumanReadableStringOptions.OmitDevice);
+        }
+
+        public void Save()
+        {
+            string rebinds = playerController.PlayerInput.actions.SaveBindingOverridesAsJson();
+
+            PlayerPrefs.SetString(RebindsKey, rebinds);
+        }
 
         public void StartRebinding()
         {
@@ -22,23 +45,22 @@ namespace DapperDino.InputSystemTutorials
 
             playerController.PlayerInput.SwitchCurrentActionMap("Menu");
 
-            rebindingOperation = actionReference.action.PerformInteractiveRebinding()
+            rebindingOperation = jumpAction.action.PerformInteractiveRebinding()
                 .WithControlsExcluding("Mouse")
                 .OnMatchWaitForAnother(0.1f)
-                .OnComplete(operation => RebindCompleted())
+                .OnComplete(operation => RebindComplete())
                 .Start();
         }
 
-        private void RebindCompleted()
+        private void RebindComplete()
         {
-            int controlBindingIndex = actionReference.action.GetBindingIndexForControl(actionReference.action.controls[0]);
+            int bindingIndex = jumpAction.action.GetBindingIndexForControl(jumpAction.action.controls[0]);
 
             bindingDisplayNameText.text = InputControlPath.ToHumanReadableString(
-                actionReference.action.bindings[controlBindingIndex].effectivePath,
+                jumpAction.action.bindings[bindingIndex].effectivePath,
                 InputControlPath.HumanReadableStringOptions.OmitDevice);
 
             rebindingOperation.Dispose();
-            rebindingOperation = null;
 
             startRebindObject.SetActive(true);
             waitingForInputObject.SetActive(false);
